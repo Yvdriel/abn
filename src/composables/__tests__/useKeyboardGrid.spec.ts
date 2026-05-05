@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { useKeyboardGrid } from '../useKeyboardGrid'
+import { useKeyboardGrid, useSingleRowKeyboardNav } from '../useKeyboardGrid'
 
 function key(name: string): KeyboardEvent {
   return new KeyboardEvent('keydown', { key: name })
@@ -74,5 +74,33 @@ describe('useKeyboardGrid', () => {
     grid.setActive(0, 2)
     grid.onKeydown(key('PageDown'))
     expect(grid.active.value.col).toBe(7)
+  })
+})
+
+describe('useSingleRowKeyboardNav', () => {
+  it('navigates left/right within bounds', () => {
+    const nav = useSingleRowKeyboardNav({ itemCount: ref(3) })
+    nav.setActive(0)
+    nav.onKeydown(key('ArrowRight'))
+    expect(nav.active.value).toBe(1)
+    nav.onKeydown(key('ArrowRight'))
+    expect(nav.active.value).toBe(2)
+    nav.onKeydown(key('ArrowRight'))
+    expect(nav.active.value).toBe(2) // clamped
+    nav.onKeydown(key('ArrowLeft'))
+    expect(nav.active.value).toBe(1)
+  })
+
+  it('Home/End jump within the row; Enter calls onActivate(col)', () => {
+    const onActivate = vi.fn<(col: number) => void>()
+    const nav = useSingleRowKeyboardNav({ itemCount: ref(5), onActivate })
+    nav.setActive(2)
+    nav.onKeydown(key('End'))
+    expect(nav.active.value).toBe(4)
+    nav.onKeydown(key('Home'))
+    expect(nav.active.value).toBe(0)
+    nav.setActive(3)
+    nav.onKeydown(key('Enter'))
+    expect(onActivate).toHaveBeenCalledWith(3)
   })
 })

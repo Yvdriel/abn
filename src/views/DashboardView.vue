@@ -10,28 +10,18 @@ import Skeleton from '@/components/Skeleton.vue'
 const shows = useShowsStore()
 const ui = useUiStore()
 
-interface FilteredGenre {
-  key: string
-  displayName: string
-  count: number
-}
-
-const filteredGenres = computed<FilteredGenre[]>(() => {
-  const hasFilters = ui.hasActiveFilters
-  const predicate = hasFilters ? ui.combinedPredicate : null
-  return shows.genreKeysSorted
-    .map((key) => {
-      const all = shows.showsByGenre(key)
-      // Fast path: when no filters are active, avoid an O(N) iteration per
-      // genre on every paginator tick — just check length.
-      const count = predicate ? all.filter(predicate).length : all.length
-      return {
-        key,
-        displayName: shows.state.genreDisplayName[key] ?? key,
-        count,
-      }
-    })
-    .filter((g) => g.count > 0)
+// `anyVisible` short-circuits via `.some()` — much cheaper than `.filter().length`
+// per genre on every paginator tick. When filters are inactive (the common case
+// during streaming), it collapses to a single `totalShows > 0` check.
+// Each `<GenreRow>` self-suppresses via `v-if` when its own filtered list is empty,
+// so we don't need to compute the per-genre count here.
+const anyVisible = computed(() => {
+  if (!ui.hasActiveFilters) return shows.totalShows > 0
+  const predicate = ui.combinedPredicate
+  for (const key of shows.genreKeysSorted) {
+    if (shows.showsByGenre(key).some(predicate)) return true
+  }
+  return false
 })
 
 const showSkeleton = computed(() => shows.totalShows === 0 && !shows.isPaginating)
@@ -47,7 +37,7 @@ const showSkeleton = computed(() => shows.totalShows === 0 && !shows.isPaginatin
       Browse shows
     </h1>
     <FilterBar />
-    <div v-if="filteredGenres.length === 0 && shows.totalShows > 0" class="px-4 sm:px-6">
+    <div v-if="!anyVisible && shows.totalShows > 0" class="px-4 sm:px-6">
       <EmptyState
         title="No shows match your filters"
         description="Try clearing some filters or widening the rating range."
@@ -56,11 +46,13 @@ const showSkeleton = computed(() => shows.totalShows === 0 && !shows.isPaginatin
     <div v-else-if="showSkeleton" class="flex flex-col gap-6 px-4 py-6 sm:px-6">
       <Skeleton v-for="i in 3" :key="i" :height="'280px'" :width="'100%'" />
     </div>
-    <GenreRow
-      v-for="g in filteredGenres"
-      :key="g.key"
-      :genre-key="g.key"
-      :display-name="g.displayName"
-    />
+    <template v-else>
+      <GenreRow
+        v-for="key in shows.genreKeysSorted"
+        :key="key"
+        :genre-key="key"
+        :display-name="shows.state.genreDisplayName[key] ?? key"
+      />
+    </template>
   </div>
 </template>

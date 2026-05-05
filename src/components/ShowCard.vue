@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { TvMazeShow } from '@/types/tvmaze'
 import AppImage from './AppImage.vue'
 import Rating from './Rating.vue'
@@ -16,6 +17,15 @@ const props = withDefaults(defineProps<Props>(), {
   tabbable: true,
 })
 
+const linkRef = ref<InstanceType<typeof RouterLink> | null>(null)
+
+defineExpose({
+  focus(): void {
+    const inst = linkRef.value as { $el?: HTMLElement } | null
+    inst?.$el?.focus?.()
+  },
+})
+
 const displayName = computed(() => props.show.name || 'Untitled')
 const segments = computed(() =>
   props.queryHighlight ? splitForHighlight(displayName.value, props.queryHighlight) : null,
@@ -26,6 +36,7 @@ const posterSrc = computed(() => props.show.image?.medium ?? null)
 
 <template>
   <RouterLink
+    ref="linkRef"
     :to="{ name: 'show', params: { id: show.id } }"
     :tabindex="tabbable ? 0 : -1"
     class="group flex w-40 shrink-0 flex-col gap-2 rounded-md p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 sm:w-44"

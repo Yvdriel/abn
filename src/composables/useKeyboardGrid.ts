@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 
 export interface UseKeyboardGridOptions {
   rowCount: Ref<number>
@@ -78,4 +78,41 @@ export function useKeyboardGrid(opts: UseKeyboardGridOptions): UseKeyboardGridRe
   }
 
   return { active, setActive, onKeydown, isActive }
+}
+
+export interface UseSingleRowKeyboardNavOptions {
+  itemCount: Ref<number>
+  onActivate?: (col: number) => void
+}
+
+export interface UseSingleRowKeyboardNavReturn {
+  active: Ref<number>
+  setActive: (col: number) => void
+  onKeydown: (event: KeyboardEvent) => void
+  isActive: (col: number) => boolean
+}
+
+// Single-row convenience over `useKeyboardGrid` — used by `<GenreRow>` for
+// per-row arrow-key navigation. Cross-row navigation is delegated to native
+// Tab between rows; this intentionally stays narrow.
+export function useSingleRowKeyboardNav(
+  opts: UseSingleRowKeyboardNavOptions,
+): UseSingleRowKeyboardNavReturn {
+  const grid = useKeyboardGrid({
+    rowCount: ref(1),
+    itemsPerRow: computed(() => [opts.itemCount.value]),
+    onActivate: opts.onActivate ? (_row, col) => opts.onActivate?.(col) : undefined,
+  })
+
+  const active = computed({
+    get: () => grid.active.value.col,
+    set: (col: number) => grid.setActive(0, col),
+  })
+
+  return {
+    active,
+    setActive: (col) => grid.setActive(0, col),
+    onKeydown: grid.onKeydown,
+    isActive: (col) => grid.isActive(0, col),
+  }
 }
